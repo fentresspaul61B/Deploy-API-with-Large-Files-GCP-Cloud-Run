@@ -213,7 +213,6 @@ jobs:
       - name: Pull File from Google Cloud Storage
         run: gsutil cp gs://delete-later-demo/hello_word.txt hello_word.txt
 
-
       - name: Build Docker Image
         run: |
           docker build -t gcr.io/${{ env.GCP_PROJECT_ID }}/${{ env.SERVICE_NAME }}:${{ github.sha }} -f Dockerfile .
