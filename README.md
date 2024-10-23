@@ -20,6 +20,23 @@ On the other hand, when the model is deployed as a static file that exists in me
 1. In top right corner select drop down projects menu. 
 2. Select create new project button, and create a new project. 
 
+### Set budget alerts
+1. Navigate to search bar and search for "billing"
+2. In the left menu find, "Billing and alerts"
+3. Select "Create Budget"
+4. Set an amount that you are comfortable with. 
+5. Set up alert threshold. I like to have more, to better understand how fast 
+I am spending. Alerts will be sent to your email. You can also decide who receives 
+the messages. 
+6. Click finish when done. 
+
+### Enable Required APIs
+1. Go to console
+2. Search artifact registry, enable API
+3. Cloud Run Admin API. An API which enables you to programmatically control cloud 
+run services. 
+4. Service Account User
+
 
 ### Create GCP Credentials JSON
 1. Go to GCP console
@@ -39,12 +56,6 @@ On the other hand, when the model is deployed as a static file that exists in me
 10. Open the downloaded JSON file, and copy its contents into the converter
 11. Copy the converted JSON file
 
-### Enable Required APIs
-1. Go to console
-2. Search artifact registry, enable API
-3. Cloud Run Admin API
-4. Service Account User
-
 ### add GCP_CREDENTIALS to GitHub
 Make sure you already have the base64 token created from the previous step. 
 1. Go to GitHub
@@ -57,7 +68,7 @@ Make sure you already have the base64 token created from the previous step.
 
 ### GCP_PROJECT_ID
 1. Go to the GCP console
-2. In the top left corner, find teh projects drop down menu
+2. In the top left corner, find the projects drop down menu
 3. Find the project ID in the right column and copy it
 4. Go back to GitHub and add the secret in the same way. Except no need to convert it to base64. Name the secret "GCP_PROJECT_ID"
 
@@ -194,5 +205,5 @@ The API is deployed on pushes to GitHub, so push the changes.
 # Conclusion
 This example encapsulates many different aspects of deploying APIs and MLOps,
 including handling IAM permissions, service accounts, setting up auto deploy
-CI/CD with GitHub Actions, loading files from GCP cloud storage, and containerizing 
-the API using Docker. 
+CI/CD with GitHub Actions, setting up billing alerts, loading files from GCP cloud storage, 
+and containerizing the API using Docker. 
