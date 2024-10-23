@@ -1,26 +1,23 @@
-# Deploy-API-with-Large-Files-GCP-Cloud-Run
-
 # Loading Files from GCP Storage Into Docker Container, During Cloud Run Deployment, Using GitHub Actions
 
-Imagine you have a relatively large file, for example, a machine learning model. You want to deploy your ML model as an API using GCP Cloud Run. Normally, you would copy all the existing files (including the model) from your GitHub repo into the docker container. However, you may prefer not to store the model in GitHub, but rather in GCP cloud storage. So how can we get the model from GCP cloud storage to our cloud run API? 
+This repo shows the steps to deploy an API using GitHub actions, GCP Cloud Run, and Docker. Specifically this example also includes how to download a file from GCP storage during the deployment in the GitHub actions workflow, add it into the docker container, and then deploy to GCP cloud run with that file. 
 
-The first way is to write a function, which pulls the model from storage and saves it locally, for example using the GCP python sdk. However there are some downsides to this approach, which include: 
+**Why is this useful?**
 
-1. Slower cold starts. If your API shuts down due to a lul in traffic, the next time it boots up, it will need to reload the model. 
-2. Less Reliability: When the model is pulled from GCP as part of the API script, the model is not loaded only once, but rather it is loaded many times during its lifetime, due to the file never existing in memory. The file gets re downloaded when the server starts and the API is made live. This leads to more possible failures, as GCP files, permissions, or tokens could change throughout the lifetime of the API, which could cause the API to fail to load the file. 
-3. Git LFS adds additional complexity to version control, and is basically an irreversible addition to the repo. 
-4. Models should be there own entity, existing outside the context of a specific repository, allowed to move between them and used in multiple places easily. 
+Pulling files down and adding them into the Docker container during deployment can be useful when you prefer not to store the file in your GitHub repo, which is often the case for large ML models for example. Also, when the file is deployed within the Docker container, you don't need to pull it from GCP when starting the API, which could lead to slower cold starts, and a less reliable service. 
 
-On the other hand, when the model is deployed as a static file that exists in memory, copied during deployment into the docker container, it will not change due to rearrangement of files on GCP, or other accidental breaking changes. In this scenario, the contents of the docker container will stay consistent like a snapshot of the state, which is preferable to improve reliability for the API. 
+# Steps
 
 
-## GitHub Secrets
+## Part 1: Variables/Alerts/APIs
 
-### Create new GCP project if needed
+### 1. Create new GCP project if needed
 1. In top right corner select drop down projects menu. 
 2. Select create new project button, and create a new project. 
 
-### Set budget alerts
+### 2. Set budget alerts
+I think its a good idea always to set budget alerts for any GCP project, as mistakes can be costly. 
+
 1. Navigate to search bar and search for "billing"
 2. In the left menu find, "Billing and alerts"
 3. Select "Create Budget"
@@ -30,7 +27,7 @@ I am spending. Alerts will be sent to your email. You can also decide who receiv
 the messages. 
 6. Click finish when done. 
 
-### Enable Required APIs
+### 3. Enable Required APIs
 1. Go to console
 2. Search artifact registry, enable API
 3. Cloud Run Admin API. An API which enables you to programmatically control cloud 
@@ -38,16 +35,17 @@ run services.
 4. Service Account User
 
 
-### Create GCP Credentials JSON
-1. Go to GCP console
+### 4. Create GCP Credentials JSON
+1. Go to GCP console: https://console.cloud.google.com/ 
 2. Search for "Service Accounts"
-3. Create a new service account called "storage_agent" (Name does not matter)
-4. Add the follow permissions:
-    - Storage Object Viewer: Grants access to agent to pull the download and list items in a bucket. 
-    - Service Account User: Required for deploying to cloud run. 
-    - Cloud Run Developer: Grants the agent access to deploy the API to GCP cloud run. 
-    - Artifact Registry Administrator Create On Push.
-    - Maybe need to add more, TBD
+3. Create a new service account called "storage_agent" (name is arbitrary)
+4. Add the following permissions:
+    | **Role Name**                     | **Description**                                                                                                             |
+    |-----------------------------------|-----------------------------------------------------------------------------------------------------------------------------|
+    | **Storage Object Viewer**         |    Grants access to agent to download and list items in a bucket.                                                           |
+    | **Service Account User**          |    Required for deploying to Cloud Run; allows the deploying service account to act as the runtime service account.         |
+    | **Cloud Run Developer**           |    Grants the agent access to deploy the API to Google Cloud Run.                                                           |
+    | **Artifact Registry Create-on-Push Writer**      |    Used to create an artifact, which is the stored Docker image in GCP.                                                     |
 5. Click create
 6. Find the triple dots menu on the right and select "manage keys"
 7. Select "ADD KEY" and JSON
@@ -56,7 +54,7 @@ run services.
 10. Open the downloaded JSON file, and copy its contents into the converter
 11. Copy the converted JSON file
 
-### add GCP_CREDENTIALS to GitHub
+### 4. Add GCP_CREDENTIALS to GitHub secrets
 Make sure you already have the base64 token created from the previous step. 
 1. Go to GitHub
 2. Go to the repository
@@ -66,32 +64,31 @@ Make sure you already have the base64 token created from the previous step.
 6. Click "Add new repository secret" and name it "GCP_CREDENTIALS":
 7. Paste in the base64 credentials JSON
 
-### GCP_PROJECT_ID
+### 5. Add GCP_PROJECT_ID to GitHub secrets
 1. Go to the GCP console
 2. In the top left corner, find the projects drop down menu
 3. Find the project ID in the right column and copy it
 4. Go back to GitHub and add the secret in the same way. Except no need to convert it to base64. Name the secret "GCP_PROJECT_ID"
 
-## Adding a test file to GCP storage
-
-### Create new bucket
+### 6. Create new bucket
 1. Navigate to the console
 2. Search "Cloud Storage"
 3. Create a new bucket, name it anything
 4. Use the default settings for the bucket (configure however fits your needs)
 
-### Create test file
+### 7. Create test file
 1. Navigate to your terminal
 2. This is very simple create the file however you prefer. But here is what I did:
     - Navigate to desktop
-    - touch hello_word.txt
-    - vim hello_world.txt
-    - "i"
-    - type in "Hello world!"
-    - press esc
-    - ":wq" + press enter
+    - ```touch hello_word.txt```
+    - ```vim hello_world.txt```
+    - Press ```i``` to "insert" to start typing.
+    - type in your message: "Hello world!"
+    - Press esc
+    - Save and exit vim: ```":wq" + press enter```
 
-### Upload the test file
+
+### 8. Upload the test file
 1. Navigate back to the new bucket created
 2. Select "UPLOAD FILES"
 3. Find your new "hello_world.txt" file and upload it. 
@@ -99,6 +96,10 @@ Make sure you already have the base64 token created from the previous step.
 Here its important to note, that this does not need to be a simple text file, it could be a large ML model instead. However, if you do have a larger file, this may require adjusting the settings for the servers memory when deploying to cloud run. 
 
 ## Creating the Dockerfile
+
+Here, we use a boiler plate Dockerfile to deploy and run the API using Uvicorn and FastAPI. 
+Uvicorn handles the server layer, while FastAPI handles the application layer. 
+
 ```Docker
 # Use an official Python runtime as a parent image
 FROM python:3.10
@@ -126,7 +127,49 @@ CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8080"]
 
 ```
 
+## Create simple Python API
+Here, I will use a bare-bones API which just checks if the file exists, and reads it contents to confirm that it exists, and the file is not corrupted. 
+
+Make sure to change the API logic if your file is not named "hello_world.txt" or you are using a different type of file.
+
+```python
+from fastapi import FastAPI
+import os
+
+app = FastAPI()
+@app.get("/")
+def check_file():
+    filepath = "hello_word.txt"
+    if os.path.exists(filepath):
+        with open(filepath) as f:
+            contents = f.read().strip("\n")
+            message = f"Your file exists. Its contents are: '{contents}'"
+            return {"message": message}
+    else:
+        return {"message": "File is missing."}
+```
+
 ## Create the github actions workflow
+The GitHub actions workflow is used to automate the deployment, by orchestrating different defined steps in a cloud environment provided by GitHub. 
+
+### GitHub Actions Workflow overview
+The steps in the workflow are as follows: 
+1. Checkout the recent changes from GitHub
+2. Authenticate in GCP using the service account created earlier.
+3. Install the cloud SDK in the GitHub actions environment, to enable running GCP terminal commands to pull data from GCP bucket. 
+4. Validate service account
+5. Authenticate the Docker Container: This command configures Docker to use your Google Cloud credentials when interacting with Google Container Registry.
+6. Pull file from GCP bucket
+7. Build the docker image: The Docker image has a command to copy the file into the container. Here if you have a file with a different name, make sure to change the Dockerfile accordingly. 
+8. Push Docker Image: Push the image to the GCP artifact registry. This is where all the docker images are stored, and later used for creating the containers.
+9. Deploy to GCP Cloud Run: Using the gcloud CLI, deploy the API to the managed server. 
+
+Here it is important to note you may want to change some of the settings on the final step. For example, you may want to add more memory to the server before deploying. Or maybe set the min instances to greater than 0, such that you can avoid cold starts. 
+
+There are many options to explore in the docs
+https://cloud.google.com/sdk/gcloud/reference/run/deploy 
+
+### Workflow .yaml
 ```yaml
 name: Deploy to Cloud Run
 
@@ -168,12 +211,12 @@ jobs:
         run: gcloud auth configure-docker
 
       - name: Pull File from Google Cloud Storage
-        run: gsutil cp gs://gcp-helpers-and-demos/hello_word.txt ./test_api/hello_word.txt
+        run: gsutil cp gs://delete-later-demo/hello_word.txt hello_word.txt
 
 
       - name: Build Docker Image
         run: |
-          docker build -t gcr.io/${{ env.GCP_PROJECT_ID }}/${{ env.SERVICE_NAME }}:${{ github.sha }} -f test_api/Dockerfile test_api
+          docker build -t gcr.io/${{ env.GCP_PROJECT_ID }}/${{ env.SERVICE_NAME }}:${{ github.sha }} -f Dockerfile .
 
       - name: Push Docker Image
         run: |
@@ -188,22 +231,35 @@ jobs:
 ```
 
 ## Deploy the API
-The API is deployed on pushes to GitHub, so push the changes. 
+The API is deployed on pushes to the main branch on to GitHub, so push the changes, and this should start the deployment.
 
 ## Test the API
 1. Navigate to cloud run
 2. Find the API
-3. Copy the URL
-4. Open the terminal within the console. Run gcloud auth print-identity-token
+3. Copy the APIs URL with the clipboard button
+4. Get an ID token: Open the terminal within the GCP console. Run gcloud auth print-identity-token
 5. Copy the token
-6. Add the URL to postman
-7. Add the Auth bearer token
-8. Make the request
-9. See the result, with access to the file! 
+6. Navigate to Post https://www.postman.com/, make an account if required.
+7. Click on the "new request button"
+8. Paste the URL into the text box
+9. Select "Auth"
+10. Change the auth auth type to "Bearer Token"
+11. Paste the token into text box
+12. Double check the URL, and click "send"
+13. See the result, with access to the file! 
+
+You should see a ```200 OK``` response with:
+```JSON
+{
+    "message": "Your file exists. Its contents are: 'Hello World!'"
+}
+```
 
 
 # Conclusion
 This example encapsulates many different aspects of deploying APIs and MLOps,
 including handling IAM permissions, service accounts, setting up auto deploy
-CI/CD with GitHub Actions, setting up billing alerts, loading files from GCP cloud storage, 
-and containerizing the API using Docker. 
+CI/CD with GitHub Actions, adding billing alerts, loading files from GCP cloud storage, and containerizing the API using Docker. 
+
+## Next steps
+Many of these steps are completed manually through the GCP UI; however, I would like to be able to automate this entire process. This is know as "Infrastructure as Code". This can be done through tools like Terraform or Ansible.
