@@ -95,12 +95,12 @@ Make sure you already have the base64 token created from the previous step.
 
 Here its important to note, that this does not need to be a simple text file, it could be a large ML model instead. However, if you do have a larger file, this may require adjusting the settings for the servers memory when deploying to cloud run. 
 
-## Creating the Dockerfile
+## Part 2: Creating the Dockerfile
 
 Here, we use a boiler plate Dockerfile to deploy and run the API using Uvicorn and FastAPI. 
 Uvicorn handles the server layer, while FastAPI handles the application layer. 
 
-```Docker
+```Dockerfile
 # Use an official Python runtime as a parent image
 FROM python:3.10
 
@@ -124,10 +124,9 @@ EXPOSE 8080
 
 # Command to run the application
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8080"]
-
 ```
 
-## Create simple Python API
+## Part 3: Create simple Python API
 Here, I will use a bare-bones API which just checks if the file exists, and reads it contents to confirm that it exists, and the file is not corrupted. 
 
 Make sure to change the API logic if your file is not named "hello_world.txt" or you are using a different type of file.
@@ -149,7 +148,14 @@ def check_file():
         return {"message": "File is missing."}
 ```
 
-## Create the github actions workflow
+Make sure to also add a requirements.txt file: 
+
+```txt
+fastapi
+uvicorn
+```
+
+## Part 4: Create the github actions workflow
 The GitHub actions workflow is used to automate the deployment, by orchestrating different defined steps in a cloud environment provided by GitHub. 
 
 ### GitHub Actions Workflow overview
@@ -229,11 +235,11 @@ jobs:
 
 ```
 
-## Deploy the API
-The API is deployed on pushes to the main branch on to GitHub, so push the changes, and this should start the deployment.
+## Part 5. Deploy the API
+The API is deployed on pushes to the main branch on to GitHub, so push the changes, and this should start the deployment. You can change how the code is deployed, as there are many options with GitHub actions https://docs.github.com/en/actions 
 
-## Test the API
-1. Navigate to cloud run
+## Part 6: Test the API
+1. Search "Cloud Run" in the GCP console
 2. Find the API
 3. Copy the APIs URL with the clipboard button
 4. Get an ID token: Open the terminal within the GCP console. Run gcloud auth print-identity-token
@@ -254,11 +260,8 @@ You should see a ```200 OK``` response with:
 }
 ```
 
-
 # Conclusion
-This example encapsulates many different aspects of deploying APIs and MLOps,
-including handling IAM permissions, service accounts, setting up auto deploy
-CI/CD with GitHub Actions, adding billing alerts, loading files from GCP cloud storage, and containerizing the API using Docker. 
+This small project encapsulates different aspects of deploying APIs and MLOps more generally. Some of the topics covered include including handling GCP IAM permissions, creating service accounts, setting up auto deploy CI/CD with GitHub Actions, adding billing alerts, loading files from GCP cloud storage, testing APIs with Postman and containerizing the API using Docker. 
 
 ## Next steps
-Many of these steps are completed manually through the GCP UI; however, I would like to be able to automate this entire process. This is know as "Infrastructure as Code". This can be done through tools like Terraform or Ansible.
+Many of these steps outlined in this project were completed manually through the GCP UI; however, I would like to be able to automate this entire process. This is know as "Infrastructure as Code". This can be done through tools like Terraform or Ansible.
